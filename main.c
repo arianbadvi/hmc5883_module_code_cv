@@ -23,6 +23,7 @@ Data Stack size         : 256
 
 #include <mega88p.h>
 #include <delay.h>
+#include <stdio.h>
 // Declare your global variables here
 
 #define DATA_REGISTER_EMPTY (1<<UDRE0)
@@ -50,12 +51,23 @@ unsigned int rx_counter0=0;
 // This flag is set on USART Receiver buffer overflow
 bit rx_buffer_overflow0;
 
+//added by me
+char my_buffer = 0;
+void put_str (char *Str);
+char str[50];
+unsigned char i = 0;
+unsigned char uart_data_in = 0;
+
+
 // USART Receiver interrupt service routine
 interrupt [USART_RXC] void usart_rx_isr(void)
 {
 char status,data;
 status=UCSR0A;
 data=UDR0;
+my_buffer = data;
+uart_data_in = 1;
+i++;
 if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
    {
    rx_buffer0[rx_wr_index0++]=data;
@@ -98,13 +110,6 @@ return data;
 
 // TWI functions
 #include <twi.h>
-#include <stdio.h>
-
-
-void put_str (char *Str);
-
-char str[50];
-
 
 void main(void)
 {
@@ -210,7 +215,7 @@ PCICR=(0<<PCIE2) | (0<<PCIE1) | (0<<PCIE0);
 // USART Transmitter: On
 // USART0 Mode: Asynchronous
 // USART Baud Rate: 115200
-UCSR0A=(0<<RXC0) | (0<<TXC0) | (0<<UDRE0) | (0<<FE0) | (0<<DOR0) | (0<<UPE0) | (0<<U2X0) | (0<<MPCM0);
+UCSR0A=(1<<RXC0) | (0<<TXC0) | (0<<UDRE0) | (0<<FE0) | (0<<DOR0) | (0<<UPE0) | (0<<U2X0) | (0<<MPCM0);
 UCSR0B=(1<<RXCIE0) | (0<<TXCIE0) | (0<<UDRIE0) | (1<<RXEN0) | (1<<TXEN0) | (0<<UCSZ02) | (0<<RXB80) | (0<<TXB80);
 UCSR0C=(0<<UMSEL01) | (0<<UMSEL00) | (0<<UPM01) | (0<<UPM00) | (0<<USBS0) | (1<<UCSZ01) | (1<<UCSZ00) | (0<<UCPOL0);
 UBRR0H=0x00;
@@ -246,15 +251,30 @@ twi_master_init(100);
 
 while (1)
       {
-      // Place your code here
-      PORTD |= (1<<5);
-      delay_ms(1000);
-      PORTD &= ~(1<<5);
+        // Place your code here
+        PORTD |= (1<<5);
+        delay_ms(1000);
+        PORTD &= ~(1<<5);
+        delay_ms(1000);
 
-      sprintf(str, "This is a test");
-      put_str (str);
-      delay_ms(1000);
-
+        if (uart_data_in != 0)
+        {
+            uart_data_in = 0;
+            sprintf(str, "IN");
+            put_str(str);
+            if (my_buffer == 'R')
+            {
+                sprintf(str, "Recieve%c", my_buffer);
+                put_str(str);
+                my_buffer = 0;
+            }
+            else
+            {
+               sprintf(str, "%c", my_buffer);
+               put_str(str);
+               my_buffer = 0;
+            }
+        }
       }
 }
 
